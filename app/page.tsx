@@ -33,12 +33,6 @@ export default async function HomePage() {
           <p className="mt-6 text-lg text-gray-300">
             Premium sports equipment built for performance.
           </p>
-          <Link
-            href="/categories"
-            className="mt-8 inline-block rounded-md bg-white px-6 py-3 font-medium text-black hover:bg-gray-200"
-          >
-            Shop now
-          </Link>
         </div>
       </section>
 
