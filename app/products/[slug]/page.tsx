@@ -53,10 +53,14 @@ export default async function ProductPage({ params }: Props) {
           <p className="text-2xl font-semibold mb-6">
             ${(product.price / 100).toFixed(2)}
           </p>
-
+          {/* Skicka med HELA product-objektet istället för bara id */}
           <AddToCartButton
-            productId={product.id}
-            stock={product.stock ?? 0}
+            product={{
+              id: product.id,
+              name: product.name,
+              price: product.price,
+              imageUrl: product.imageUrl
+            }}
           />
         </div>
       </div>

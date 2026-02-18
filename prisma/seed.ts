@@ -19,9 +19,9 @@ async function main() {
   // Categories
 await prisma.category.createMany({
   data: [
-    { name: "Football", slug: "football" },
     { name: "Basketball", slug: "basketball" },
     { name: "Fitness", slug: "fitness" },
+    { name: "Football", slug: "football" },
     { name: "Running", slug: "running" },
   ],
 });
@@ -29,16 +29,16 @@ await prisma.category.createMany({
   console.log("✅ Categories created");
 
   // Fetch categories for relations
-  const football = await prisma.category.findUnique({
-    where: { slug: "football" },
-  });
-
   const basketball = await prisma.category.findUnique({
     where: { slug: "basketball" },
   });
 
   const fitness = await prisma.category.findUnique({
     where: { slug: "fitness" },
+  });
+
+  const football = await prisma.category.findUnique({
+    where: { slug: "football" },
   });
 
   if (!football || !basketball || !fitness) {
@@ -49,16 +49,6 @@ await prisma.category.createMany({
   await prisma.product.createMany({
     data: [
       {
-        name: "Pro Match Football",
-        slug: "pro-match-football",
-        description: "FIFA-approved professional match football.",
-        price: 2999,
-        stock: 50,
-        imageUrl:
-          "https://images.unsplash.com/photo-1600679472829-3044539ce8ed",
-        categoryId: football.id,
-      },
-      {
         name: "Elite Basketball",
         slug: "elite-basketball",
         description: "Indoor/outdoor composite leather basketball.",
@@ -67,6 +57,16 @@ await prisma.category.createMany({
         imageUrl:
           "https://images.unsplash.com/photo-1519861531473-9200262188bf",
         categoryId: basketball.id,
+      },
+      {
+        name: "Pro Match Football",
+        slug: "pro-match-football",
+        description: "FIFA-approved professional match football.",
+        price: 2999,
+        stock: 50,
+        imageUrl:
+          "https://images.unsplash.com/photo-1600679472829-3044539ce8ed",
+        categoryId: football.id,
       },
       {
         name: "Adjustable Dumbbells",

@@ -87,10 +87,23 @@ export async function POST(req: Request) {
       });
 
       console.log(`Order created and stock updated for user: ${userId}`);
-    } catch (error) {
-      console.error("Database transaction failed:", error);
-      return new Response("Internal Server Error", { status: 500 });
     }
+// _ _ _
+    // catch (error) {
+    //   console.error("Database transaction failed:", error);
+    //   return new Response("Internal Server Error", { status: 500 });
+    // }
+// _ _ _
+
+  catch (error) {
+    console.error("POST /api/cart ERROR:", error);
+    return NextResponse.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
+  }
+
+
   }
 
   // 6. Return a 200 response to Stripe to acknowledge receipt

@@ -4,49 +4,23 @@ import { NextResponse } from "next/server";
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
+    const isAdminPage = req.nextUrl.pathname.startsWith("/admin");
 
-    // Protect admin routes
-    if (req.nextUrl.pathname.startsWith("/admin")) {
-      if (token?.role !== "admin") {
-        return NextResponse.redirect(new URL("/", req.url));
-      }
+    // Om man försöker nå admin men inte är admin, skicka till startpage
+    if (isAdminPage && token?.role !== "admin") {
+      return NextResponse.redirect(new URL("/", req.url));
     }
   },
   {
     callbacks: {
-      authorized: ({ token }) => {
-        // Require login for matched routes
-        return !!token;
-      },
+      // Returnera true här för att låta middleware-funktionen ovan hantera logiken,
+      // eller kontrollera att token finns.
+      authorized: ({ token }) => !!token,
     },
   }
 );
 
 export const config = {
+  // Här definierar du exakt vilka stigar som ska trigga inloggningskravet
   matcher: ["/admin/:path*"],
 };
-
-
-// import { withAuth } from "next-auth/middleware";
-// import { NextResponse } from "next/server";
-
-// export default withAuth(
-//   function middleware(req) {
-//     const token = req.nextauth.token;
-
-//     if (req.nextUrl.pathname.startsWith("/admin")) {
-//       if (token?.role !== "admin") {
-//         return NextResponse.redirect(new URL("/", req.url));
-//       }
-//     }
-//   },
-//   {
-//     callbacks: {
-//       authorized: ({ token }) => !!token,
-//     },
-//   }
-// );
-
-// export const config = {
-//   matcher: ["/admin/:path*"],
-// };

@@ -1,20 +1,23 @@
-import type { DefaultSession } from "next-auth";
+import NextAuth, { DefaultSession } from "next-auth";
 
 declare module "next-auth" {
+  // Detta definierar vad som returneras från authorize() och finns i JWT
   interface User {
-    role: string;
+    id: string;
+    role?: string;
   }
 
+  // Detta definierar vad som finns tillgängligt i useSession() / getServerSession()
   interface Session {
     user: {
       id: string;
-      role: string;
+      role?: string;
     } & DefaultSession["user"];
   }
-}
 
-declare module "next-auth/jwt" {
+  // Detta krävs för att TypeScript ska förstå token-objektet i callbacks
   interface JWT {
+    id: string;
     role?: string;
   }
 }
