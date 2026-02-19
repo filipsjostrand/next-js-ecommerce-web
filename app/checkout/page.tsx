@@ -64,22 +64,22 @@ export default async function CheckoutPage() {
         <div className="mt-8 border-t pt-6 space-y-3">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span>${(subtotal / 100).toFixed(2)}</span>
+            <span>{(subtotal / 100).toFixed(2)} kr</span>
           </div>
 
           <div className="flex justify-between">
             <span>Tax (10%)</span>
-            <span>${(tax / 100).toFixed(2)}</span>
+            <span>{(tax / 100).toFixed(2)} kr</span>
           </div>
 
           <div className="flex justify-between">
             <span>Shipping</span>
-            <span>${(shipping / 100).toFixed(2)}</span>
+            <span>{(shipping / 100).toFixed(2)} kr</span>
           </div>
 
           <div className="flex justify-between font-bold text-lg pt-4">
             <span>Total</span>
-            <span>${(total / 100).toFixed(2)}</span>
+            <span>{(total / 100).toFixed(2)} kr</span>
           </div>
         </div>
 
@@ -104,7 +104,7 @@ export default async function CheckoutPage() {
             type="submit"
             className="w-full rounded-md bg-black text-white py-3 font-medium hover:bg-gray-800 transition"
           >
-            Pay ${(total / 100).toFixed(2)}
+            Pay {(total / 100).toFixed(2)} kr
           </button>
         </form>
       </div>
