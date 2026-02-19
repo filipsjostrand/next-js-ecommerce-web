@@ -3,58 +3,59 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 
+// Definiera en enkel typ för cart-objektet
+interface SimpleCartItem {
+  quantity: number;
+}
+
 export default function CartIcon() {
   const [count, setCount] = useState(0);
+  const [isLoaded, setIsLoaded] = useState(false); // För att hantera hydration säkert
 
+  const load = useCallback(async () => {
+    // 1. Kolla LocalStorage
+    const localCart: SimpleCartItem[] = JSON.parse(localStorage.getItem("cart") || "[]");
+    const localCount = localCart.reduce((acc, item) => acc + item.quantity, 0);
 
-const load = useCallback(async () => {
-  // 1. Kolla först LocalStorage (för anonyma användare)
-  const localCart = JSON.parse(localStorage.getItem("cart") || "[]");
-  const localCount = localCart.reduce((acc: number, item: any) => acc + item.quantity, 0);
+    setCount(localCount);
 
-  // Visa localCount direkt
-  setCount(localCount);
-
-  // 2. VALFRITT: Om du vill synka med DB för inloggade, gör fetch här,
-  // men omslut den i en try/catch som inte kastar fel
-  try {
-    const res = await fetch("/api/cart");
-    if (res.ok) {
-      const data = await res.json();
-      // Om användaren är inloggad kan vi prioritera DB-count
-      if (data.count !== undefined) setCount(data.count);
+    // 2. VALFRITT: Synk med DB
+    try {
+      const res = await fetch("/api/cart");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.count !== undefined) setCount(data.count);
+      }
+    } catch (e) {
+      // Tyst fel
     }
-  } catch (e) {
-    // Vi tystar felet här eftersom vi redan har localCount
-  }
-}, []);
+  }, []);
 
   useEffect(() => {
-    // Initial load
+    // Markera att vi är på klienten och kör första laddningen
     load();
+    setIsLoaded(true);
 
     function handleUpdate() {
       load();
     }
 
-    // Listen for the custom event
     window.addEventListener("cartUpdated", handleUpdate);
+    return () => window.removeEventListener("cartUpdated", handleUpdate);
+  }, [load]);
 
-    return () => {
-      window.removeEventListener("cartUpdated", handleUpdate);
-    };
-  }, [load]); // 'load' is now a stable dependency
-
+  // För att undvika att ikonen "hoppar" mellan 0 och rätt antal vid sidladdning (Hydration)
+  // kan vi välja att inte rendera siffran förrän isLoaded är true.
   return (
     <Link
       href="/cart"
-      className="relative flex items-center hover:scale-110 transition-transform"
+      className="relative flex items-center hover:scale-110 transition-transform p-2"
     >
       <span className="text-2xl">🛒</span>
 
-      {count > 0 && (
-        <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs font-semibold rounded-full px-2 py-0.5 animate-pulse">
-          {count}
+      {isLoaded && count > 0 && (
+        <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center translate-x-1 -translate-y-1">
+          {count > 99 ? "99+" : count}
         </span>
       )}
     </Link>

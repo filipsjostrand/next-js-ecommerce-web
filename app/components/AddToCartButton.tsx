@@ -1,8 +1,19 @@
-"use client"; // Viktigt! Knappar kräver klientsida
+"use client";
 
 import { useState } from "react";
 
-// 1. Definitionen av typer (Interface) ska stå HÖGST UPP, utanför funktionen.
+// 1. Definitioner av typer
+interface CartItem {
+  productId: string;
+  quantity: number;
+  product: {
+    id: string;
+    name: string;
+    price: number;
+    imageUrl: string;
+  };
+}
+
 interface ProductProps {
   product: {
     id: string;
@@ -12,28 +23,24 @@ interface ProductProps {
   };
 }
 
-// 2. Export-funktionen börjar här
 export default function AddToCartButton({ product }: ProductProps) {
   const [loading, setLoading] = useState(false);
 
-  // 3. handleAdd funktionen placeras inuti komponenten
   const handleAdd = () => {
     try {
       setLoading(true);
 
-      // Hämta befintlig korg från LocalStorage
-      const currentCart = JSON.parse(localStorage.getItem("cart") || "[]");
+      // Hämta korgen och berätta för TS att det är en lista av CartItem
+      const currentCart: CartItem[] = JSON.parse(localStorage.getItem("cart") || "[]");
 
-      // Kolla om produkten redan finns i korgen
+      // Nu vet TS vad 'item' är, så vi slipper 'any'
       const existingItemIndex = currentCart.findIndex(
-        (item: any) => item.productId === product.id
+        (item) => item.productId === product.id
       );
 
       if (existingItemIndex > -1) {
-        // Om den finns, öka bara antal
         currentCart[existingItemIndex].quantity += 1;
       } else {
-        // Om den inte finns, lägg till hela objektet som Drawern behöver
         currentCart.push({
           productId: product.id,
           quantity: 1,
@@ -46,10 +53,8 @@ export default function AddToCartButton({ product }: ProductProps) {
         });
       }
 
-      // Spara tillbaka till LocalStorage
       localStorage.setItem("cart", JSON.stringify(currentCart));
 
-      // 4. Skicka ut event så att CartIcon och CartDrawer fattar att de ska uppdateras
       window.dispatchEvent(new Event("cartUpdated"));
       window.dispatchEvent(new Event("showCartDrawer"));
 
@@ -66,7 +71,7 @@ export default function AddToCartButton({ product }: ProductProps) {
       disabled={loading}
       className="bg-black text-white px-6 py-3 rounded-lg font-bold hover:bg-zinc-800 transition active:scale-95 disabled:opacity-50"
     >
-      {loading ? "Lägger till..." : "Add to Cart"}
+      {loading ? "Adding..." : "Add to Cart"}
     </button>
   );
 }

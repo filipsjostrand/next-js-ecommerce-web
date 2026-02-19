@@ -1,72 +1,102 @@
 "use client";
 
 import { useState } from "react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
+import PaymentForm from "./PaymentForm";
 
-export default function CheckoutForm({ items, onClearCart }: { items: any[], onClearCart: () => void }) {
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    address: "",
-  });
+// 1. Definiera typerna (du kan flytta dessa till en gemensam types.ts senare)
+interface CartItem {
+  productId: string;
+  quantity: number;
+  product: {
+    name: string;
+    price: number;
+    imageUrl: string;
+  };
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
+interface CheckoutFormProps {
+  items: CartItem[];
+  onClearCart: () => void;
+}
+
+// Ladda in din public key från .env
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+
+export default function CheckoutForm({ items, onClearCart }: CheckoutFormProps) {
+  const [clientSecret, setClientSecret] = useState("");
+  const [customer, setCustomer] = useState({ name: "", email: "", address: "" });
+  const [showPayment, setShowPayment] = useState(false);
+
+  // 'i' har nu automatiskt rätt typ tack vare CheckoutFormProps
+  const total = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+
+  const startPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
 
     try {
-      const res = await fetch("/api/checkout", {
+      // Hämta clientSecret från din API-route
+      const res = await fetch("/api/create-payment-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items,
-          customer: formData,
-        }),
+        body: JSON.stringify({ amount: total }),
       });
 
-      const data = await res.json();
+      if (!res.ok) throw new Error("Kunde inte initiera betalning");
 
-      if (data.success) {
-        alert("Tack för ditt köp! Ordernummer: " + data.orderId);
-        onClearCart(); // Töm localStorage
-        window.location.href = "/"; // Skicka hem kunden
-      }
-    } catch (error) {
-      alert("Något gick fel vid betalningen.");
-    } finally {
-      setLoading(false);
+      const data = await res.json();
+      setClientSecret(data.clientSecret);
+      setShowPayment(true);
+    } catch (err) {
+      console.error("Payment Error:", err);
+      alert("Något gick fel vid kommunikationen med Stripe.");
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-10 p-6 bg-gray-50 rounded-xl space-y-4">
-      <h2 className="text-xl font-bold">Delivery details</h2>
-      <input
-        required
-        placeholder="Fullständigt namn"
-        className="w-full p-2 border rounded"
-        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-      />
-      <input
-        required
-        type="email"
-        placeholder="E-post"
-        className="w-full p-2 border rounded"
-        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-      />
-      <textarea
-        required
-        placeholder="Adress, Postnummer, Ort"
-        className="w-full p-2 border rounded"
-        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-      />
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 disabled:opacity-50"
-      >
-        {loading ? "Processing..." : "Pay and complete purchase"}
-      </button>
-    </form>
+    <div className="bg-gray-50 p-6 rounded-2xl shadow-sm">
+      {!showPayment ? (
+        <form onSubmit={startPayment} className="space-y-4">
+          <h2 className="text-xl font-bold">Delivery details</h2>
+          <input
+            required
+            placeholder="Namn"
+            className="w-full p-3 border rounded-lg text-black"
+            value={customer.name}
+            onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
+          />
+          <input
+            required
+            type="email"
+            placeholder="E-post"
+            className="w-full p-3 border rounded-lg text-black"
+            value={customer.email}
+            onChange={(e) => setCustomer({ ...customer, email: e.target.value })}
+          />
+          <textarea
+            required
+            placeholder="Adress"
+            className="w-full p-3 border rounded-lg text-black"
+            value={customer.address}
+            onChange={(e) => setCustomer({ ...customer, address: e.target.value })}
+          />
+          <button className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-zinc-800 transition">
+            Continue to payment ({(total / 100).toFixed(2)} kr)
+          </button>
+        </form>
+      ) : (
+        clientSecret && (
+          <Elements stripe={stripePromise} options={{ clientSecret }}>
+            <h2 className="text-xl font-bold mb-4">Complete payment</h2>
+            <PaymentForm
+              items={items}
+              customer={customer}
+              onClearCart={onClearCart}
+            />
+          </Elements>
+        )
+      )}
+    </div>
   );
 }
