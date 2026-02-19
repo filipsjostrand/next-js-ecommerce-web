@@ -12,8 +12,6 @@ datasource db {
   provider = "sqlite"
 }
 
-
-
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -22,7 +20,7 @@ model User {
   createdAt DateTime @default(now())
 
   cartItems CartItem[]
-  orders    Order[]
+  orders    Order[] // Denna pekar på 'user' i Order-modellen
 }
 
 model Category {
@@ -63,13 +61,16 @@ model CartItem {
 }
 
 model Order {
-  id        String   @id @default(uuid())
-  userId    String
-  total     Int
-  status    String // pending | paid | failed | refunded
-  createdAt DateTime @default(now())
+  id            String   @id @default(uuid())
+  userId        String? // Gjort valfri (?) för anonyma köp
+  customerName  String // Nytt: För att veta vem som köpt
+  customerEmail String // Nytt
+  address       String // Nytt
+  total         Int
+  status        String // pending | paid | failed | refunded
+  createdAt     DateTime @default(now())
 
-  user  User        @relation(fields: [userId], references: [id])
+  user  User?       @relation(fields: [userId], references: [id]) // Gjort valfri (?)
   items OrderItem[]
 }
 
