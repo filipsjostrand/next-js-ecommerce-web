@@ -70,6 +70,7 @@ export default async function HomePage() {
                   alt={product.name}
                   fill
                   className="object-cover group-hover:scale-105 transition"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />
               </div>
 
@@ -79,7 +80,7 @@ export default async function HomePage() {
                 </p>
                 <h3 className="font-medium">{product.name}</h3>
                 <p className="font-semibold">
-                  {(product.price / 100).toFixed(2)} kr
+                  {(product.price / 10).toFixed(2)} kr
                 </p>
               </div>
             </Link>

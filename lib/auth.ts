@@ -1,55 +1,80 @@
-import { NextAuthOptions, User } from "next-auth";
+// import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { db } from "@/lib/db";
+import bcrypt from "bcrypt";
 
 export const authOptions: NextAuthOptions = {
+  // adapter: PrismaAdapter(db),
   session: {
     strategy: "jwt",
   },
-  // LÄGG TILL DETTA HÄR:
   pages: {
     signIn: "/login",
   },
-
   providers: [
     CredentialsProvider({
-      name: "Admin Login",
+      name: "credentials",
       credentials: {
-        username: { label: "Användarnamn", type: "text" },
-        password: { label: "Lösenord", type: "password" },
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const adminUser = "admin";
-        const adminPass = "hemligt123";
-
-        if (
-          credentials?.username === adminUser &&
-          credentials?.password === adminPass
-        ) {
-          // Här returnerar vi ett objekt som matchar "User"-interfacet i din d.ts-fil
-          return {
-            id: "1",
-            name: "Admin",
-            email: "admin@store.com",
-            role: "admin",
-          };
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Missing credentials");
         }
-        return null;
+
+        const user = await db.user.findUnique({
+          where: { email: credentials.email },
+        });
+
+        // --- HÄR KLISTRAR DU IN LOGGARNA ---
+        console.log("-----------------------------------");
+        console.log("LOGIN DEBUG:");
+        console.log("Försöker logga in med:", credentials?.email);
+        console.log("Lösenord från form:", credentials?.password);
+
+        if (!user) {
+          console.log("RESULTAT: Användaren hittades inte i databasen!");
+          throw new Error("User not found");
+        }
+
+        console.log("Hash från DB:", user.password);
+
+        const isPasswordValid = await bcrypt.compare(
+          credentials.password,
+          user.password
+        );
+
+        console.log("Matchar lösenordet?:", isPasswordValid);
+        console.log("-----------------------------------");
+        // ------------------------------------------
+
+        if (!isPasswordValid) {
+          throw new Error("Invalid password");
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+        };
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
-      // 'user' finns bara tillgänglig vid inloggningstillfället
       if (user) {
+        // Vi castar user till User-typen vi nyss utökade
         token.id = user.id;
-        token.role = user.role; // TypeScript vet nu att 'role' finns på 'user'
+        token.role = user.role;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string; // TypeScript vet att 'role' finns på 'session.user'
+        session.user.id = token.id;
+        session.user.role = token.role;
       }
       return session;
     },

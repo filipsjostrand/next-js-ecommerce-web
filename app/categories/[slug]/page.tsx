@@ -55,7 +55,7 @@ export default async function CategoryPage({ params }: Props) {
                 </h2>
 
                 <p className="text-sm text-gray-500">
-                  {(product.price / 100).toFixed(2)} kr
+                  {(product.price / 10).toFixed(2)} kr
                 </p>
               </div>
             </Link>

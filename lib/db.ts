@@ -5,15 +5,15 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+// Prisma 7 kräver adaptern explicit
 const adapter = new PrismaBetterSqlite3({
-  url: "file:./prisma/dev.db",
+  url: "prisma/dev.db",
 });
 
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
     adapter,
-    log: ["query"],
   });
 
 if (process.env.NODE_ENV !== "production") {
