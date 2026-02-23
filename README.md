@@ -5,7 +5,9 @@ A modern, full-stack e-commerce application for sports equipment built with: <br
   • App Router, <br>
   • Prisma, <br>
   • Stripe, and <br>
-  • NextAuth.<br>
+  • NextAuth,<br>
+  • ShadCn,<br>
+  • Axios.<br>
 
 ✨ Features
 
