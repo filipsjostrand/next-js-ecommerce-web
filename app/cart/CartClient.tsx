@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import CheckoutForm from "./CheckoutForm";
 
-// 1. Definiera typer för att slippa "any"
 interface CartItem {
   productId: string;
   quantity: number;
   product: {
+    id: string; // Se till att ID finns här nu för din webhook!
     name: string;
     price: number;
     imageUrl: string;
@@ -15,17 +15,34 @@ interface CartItem {
 }
 
 export default function CartClient() {
-  // Använd interfacet här
+  // 1. Initiera state direkt från localStorage om möjligt (förhindrar extra render)
   const [items, setItems] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
 
-  useEffect(() => {
-    const savedCart = JSON.parse(localStorage.getItem("cart") || "[]");
+  // 2. Körs bara en gång vid mount
+useEffect(() => {
+    // 1. Skapa en separat funktion för att läsa data
+    const loadCart = () => {
+      const savedCart = localStorage.getItem("cart");
+      if (!savedCart) {
+        setIsLoaded(true);
+        return;
+      }
 
-    // Genom att uppdatera state i ett svep minimerar vi risken för problem
-    setItems(savedCart);
-    setIsLoaded(true);
+      try {
+        const parsedCart = JSON.parse(savedCart);
+        // Vi sätter items först
+        setItems(parsedCart);
+      } catch (error) {
+        console.error("Fel vid laddning av korg:", error);
+      } finally {
+        // 2. Vi sätter isLoaded sist, vilket triggar den faktiska renderingen av korgen
+        setIsLoaded(true);
+      }
+    };
+
+    loadCart();
   }, []);
 
   const saveAndSync = (newItems: CartItem[]) => {
@@ -33,6 +50,8 @@ export default function CartClient() {
     localStorage.setItem("cart", JSON.stringify(newItems));
     window.dispatchEvent(new Event("cartUpdated"));
   };
+
+  // ... (behåll updateQuantity och removeItem som de är)
 
   const updateQuantity = (productId: string, delta: number) => {
     const newItems = items.map((item) => {
@@ -52,40 +71,33 @@ export default function CartClient() {
 
   const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
-  // Hydration fix: Rendera inget förrän vi vet vad som finns i localStorage
-  if (!isLoaded) return <div className="max-w-3xl mx-auto py-10 text-center">Laddar korgen...</div>;
+  if (!isLoaded) {
+    return <div className="max-w-3xl mx-auto py-10 text-center text-zinc-500">Loading cart...</div>;
+  }
 
-  if (items.length === 0) return <p className="text-center py-10">Korgen är tom.</p>;
+  if (items.length === 0) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-xl text-gray-500">Your cart is empty.</p>
+      </div>
+    );
+  }
 
+  // ... resten av din return-JSX är korrekt
   return (
     <div className="max-w-3xl mx-auto flex flex-col gap-8">
+      {/* ... din existerande map-logik ... */}
       <div className="space-y-4">
         {items.map((item) => (
           <div key={item.productId} className="flex justify-between items-center border-b pb-4">
             <div>
               <p className="font-bold text-lg">{item.product.name}</p>
               <p className="text-sm text-gray-500">{(item.product.price / 100).toFixed(2)} kr/st</p>
-
               <div className="flex items-center gap-3 mt-2">
-                <button
-                  onClick={() => updateQuantity(item.productId, -1)}
-                  className="w-8 h-8 border rounded flex items-center justify-center hover:bg-gray-100"
-                >
-                  -
-                </button>
+                <button onClick={() => updateQuantity(item.productId, -1)} className="w-8 h-8 border rounded hover:bg-gray-100">-</button>
                 <span className="font-medium w-6 text-center">{item.quantity}</span>
-                <button
-                  onClick={() => updateQuantity(item.productId, 1)}
-                  className="w-8 h-8 border rounded flex items-center justify-center hover:bg-gray-100"
-                >
-                  +
-                </button>
-                <button
-                  onClick={() => removeItem(item.productId)}
-                  className="ml-4 text-red-500 text-sm hover:underline"
-                >
-                  Remove
-                </button>
+                <button onClick={() => updateQuantity(item.productId, 1)} className="w-8 h-8 border rounded hover:bg-gray-100">+</button>
+                <button onClick={() => removeItem(item.productId)} className="ml-4 text-red-500 text-sm hover:underline">Remove</button>
               </div>
             </div>
             <p className="font-bold">{(item.product.price * item.quantity / 100).toFixed(2)} kr</p>
@@ -108,11 +120,14 @@ export default function CartClient() {
           </button>
         ) : (
           <div className="space-y-4">
-            <CheckoutForm items={items} onClearCart={() => {
-              localStorage.removeItem("cart");
-              setItems([]);
-              window.dispatchEvent(new Event("cartUpdated"));
-            }} />
+            <CheckoutForm
+              items={items}
+              onClearCart={() => {
+                localStorage.removeItem("cart");
+                setItems([]);
+                window.dispatchEvent(new Event("cartUpdated"));
+              }}
+            />
             <button
               onClick={() => setShowCheckout(false)}
               className="w-full text-gray-500 text-sm hover:underline"

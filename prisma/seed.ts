@@ -2,24 +2,16 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import bcrypt from "bcrypt";
 
-// Vi måste berätta för Prisma hur den ska prata med SQLite, precis som i db.ts
 const adapter = new PrismaBetterSqlite3({
   url: "prisma/dev.db",
 });
 
 const prisma = new PrismaClient({ adapter });
 
-// import { PrismaClient } from "@prisma/client"; // Använd standard-importen
-// import bcrypt from "bcrypt";
-
-// // Vi skapar en vanlig klient. Den kommer använda DATABASE_URL från din .env
-// const prisma = new PrismaClient();
-
 async function main() {
   console.log("🌱 Startar seeding...");
 
   const adminEmail = "admin@ggadmin.com";
-  // Vi hårdkodar lösenordet här för att vara 100% säkra på vad som hamnar i DB
   const adminPassword = "my_secret_pw_123";
 
   console.log(`Haschar lösenord för ${adminEmail}...`);
@@ -39,9 +31,9 @@ async function main() {
     },
   });
 
-  console.log(`✅ Admin-användare klar. Lösenordet är: ${adminPassword}`);
+  console.log(`✅ Admin-användare klar.`);
 
-  // 2. Rensa gammal butiksdata (viktigt för att undvika dubbletter)
+  // 2. Rensa gammal data
   await prisma.orderItem.deleteMany();
   await prisma.cartItem.deleteMany();
   await prisma.product.deleteMany();
@@ -49,52 +41,52 @@ async function main() {
 
   // 3. Skapa Kategorier
   const categories = await Promise.all([
-    prisma.category.create({ data: { name: "Basketball", slug: "basketball" } }),
-    prisma.category.create({ data: { name: "Fitness", slug: "fitness" } }),
-    prisma.category.create({ data: { name: "Football", slug: "football" } }),
-    prisma.category.create({ data: { name: "Running", slug: "running" } }),
+    prisma.category.create({ data: { name: "Basket", slug: "basket" } }),
+    prisma.category.create({ data: { name: "Träning", slug: "traning" } }),
+    prisma.category.create({ data: { name: "Fotboll", slug: "fotboll" } }),
+    prisma.category.create({ data: { name: "Löpning", slug: "lopning" } }),
   ]);
 
   console.log("✅ Kategorier skapade");
 
-  const basketball = categories.find(c => c.slug === "basketball");
-  const fitness = categories.find(c => c.slug === "fitness");
-  const football = categories.find(c => c.slug === "football");
+  const basket = categories.find(c => c.slug === "basket");
+  const traning = categories.find(c => c.slug === "traning");
+  const fotboll = categories.find(c => c.slug === "fotboll");
 
-  // 4. Skapa Produkter
+  // 4. Skapa Produkter (Priser i ören: 249 kr -> 24900)
   await prisma.product.createMany({
     data: [
       {
         name: "Elite Basketball",
         slug: "elite-basketball",
-        description: "Indoor/outdoor composite leather basketball.",
-        price: 2499,
+        description: "Professionell basketboll för både inomhus- och utomhusbruk.",
+        price: 24900, // 249 kr
         stock: 40,
         imageUrl: "https://images.unsplash.com/photo-1519861531473-9200262188bf",
-        categoryId: basketball!.id,
+        categoryId: basket!.id,
       },
       {
-        name: "Pro Match Football",
-        slug: "pro-match-football",
-        description: "FIFA-approved professional match football.",
-        price: 2999,
+        name: "Pro Match Fotboll",
+        slug: "pro-match-fotboll",
+        description: "FIFA-godkänd matchboll för professionellt spel.",
+        price: 39900, // 399 kr
         stock: 50,
         imageUrl: "https://images.unsplash.com/photo-1600679472829-3044539ce8ed",
-        categoryId: football!.id,
+        categoryId: fotboll!.id,
       },
       {
-        name: "Adjustable Dumbbells",
-        slug: "adjustable-dumbbells",
-        description: "Space-saving adjustable dumbbells for home workouts.",
-        price: 8999,
+        name: "Justerbara Hantlar",
+        slug: "justerbara-hantlar",
+        description: "Platsbesparande hantlar perfekt för hemmaträning.",
+        price: 89900, // 899 kr
         stock: 20,
         imageUrl: "https://images.unsplash.com/photo-1599058917212-d750089bc07e",
-        categoryId: fitness!.id,
+        categoryId: traning!.id,
       },
     ],
   });
 
-  console.log("✅ Produkter skapade");
+  console.log("✅ Produkter skapade med priser i ören (SEK)");
 }
 
 main()

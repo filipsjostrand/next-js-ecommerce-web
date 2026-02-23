@@ -51,7 +51,7 @@ export default async function ProductPage({ params }: Props) {
           </p>
 
           <p className="text-2xl font-semibold mb-6">
-            {(product.price / 10).toFixed(2)} kr
+            {(product.price / 100).toFixed(0)} kr
           </p>
           {/* Skicka med HELA product-objektet istället för bara id */}
           <AddToCartButton

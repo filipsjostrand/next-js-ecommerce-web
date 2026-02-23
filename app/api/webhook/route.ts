@@ -5,107 +5,95 @@ import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
 
 export async function POST(req: Request) {
-  // 1. Get the raw body for Stripe signature verification
+  // 1. Hämta bodyn som råtext (Viktigt!)
   const body = await req.text();
-
-  // 2. Get the signature (asynchronous in Next.js 15+)
   const headerList = await headers();
   const sig = headerList.get("stripe-signature");
 
-  if (!sig) {
-    return new Response("Missing stripe-signature", { status: 400 });
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!sig || !webhookSecret) {
+    console.error("Webhook Error: Missing signature or secret");
+    return new Response("Webhook Error: Missing signature or secret", { status: 400 });
   }
 
   let event: Stripe.Event;
 
-  // 3. Verify that the event actually comes from Stripe
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
-  } catch (_) {
-    return new Response("Webhook verification failed", { status: 400 });
+    // 2. Verifiera att eventet faktiskt kommer från Stripe
+    event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
+  } catch (err: any) {
+    console.error(`❌ Webhook Signature Validation Failed: ${err.message}`);
+    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
-  // 4. Handle the successful payment event
-  if (event.type === "payment_intent.succeeded") {
-    const intent = event.data.object as Stripe.PaymentIntent;
-    const userId = intent.metadata.userId;
+  // 3. Hantera betalningen
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
 
-    if (!userId) {
-      return new Response("No userId found in metadata", { status: 400 });
-    }
-
-    // Fetch the user's cart items
-    const cartItems = await db.cartItem.findMany({
-      where: { userId },
-      include: { product: true },
+    // Expandera sessionen för att få med line_items (produkterna)
+    const expandedSession = await stripe.checkout.sessions.retrieve(session.id, {
+      expand: ["line_items.data.price.product"],
     });
 
-    if (cartItems.length === 0) {
-      return new Response("Cart is empty", { status: 400 });
-    }
+    const userId = expandedSession.metadata?.userId;
+    const customerEmail = expandedSession.customer_details?.email || "";
+    const customerName = expandedSession.customer_details?.name || "";
+    const addr = expandedSession.shipping_details?.address || expandedSession.customer_details?.address;
+    const addressString = addr ? `${addr.line1}, ${addr.postal_code} ${addr.city}` : "Ingen adress";
 
     try {
-      // 5. ATOMIC TRANSACTION: Everything succeeds or everything rolls back
       await db.$transaction(async (tx) => {
-
-        // A. Create the Order and its items
-        await tx.order.create({
+        // Skapa ordern
+        const order = await tx.order.create({
           data: {
-            userId: userId,
-            total: intent.amount,
-            status: "PAID", // Ensure this matches your Prisma Enum/String casing
-            items: {
-              create: cartItems.map((item) => ({
-                productId: item.productId,
-                price: item.product.price,
-                quantity: item.quantity,
-              })),
-            },
+            userId: userId || null,
+            customerEmail,
+            customerName,
+            address: addressString,
+            total: expandedSession.amount_total || 0,
+            status: "PAID",
           },
         });
 
-        // B. Decrement stock for each product
-        for (const item of cartItems) {
-          await tx.product.update({
-            where: { id: item.productId },
-            data: {
-              stock: {
-                decrement: item.quantity,
-              },
-            },
-          });
+        // Loopa igenom produkterna och minska lagret
+        const lineItems = expandedSession.line_items?.data;
+        if (lineItems) {
+          for (const item of lineItems) {
+            const product = item.price?.product as Stripe.Product;
+            const productId = product.metadata.productId;
+
+            if (productId) {
+              // Skapa order-rad
+              await tx.orderItem.create({
+                data: {
+                  orderId: order.id,
+                  productId: productId,
+                  quantity: item.quantity || 1,
+                  price: item.price?.unit_amount || 0,
+                },
+              });
+
+              // Minska lagret i DB
+              await tx.product.update({
+                where: { id: productId },
+                data: { stock: { decrement: item.quantity || 1 } },
+              });
+            }
+          }
         }
 
-        // C. Clear the user's cart
-        await tx.cartItem.deleteMany({
-          where: { userId },
-        });
+        // Töm korgen om användaren var inloggad
+        if (userId) {
+          await tx.cartItem.deleteMany({ where: { userId } });
+        }
       });
-
-      console.log(`Order created and stock updated for user: ${userId}`);
+      console.log("✅ Order och lager uppdaterat!");
+    } catch (dbError) {
+      console.error("❌ Database Error:", dbError);
+      return new Response("Database Error", { status: 500 });
     }
-// _ _ _
-    // catch (error) {
-    //   console.error("Database transaction failed:", error);
-    //   return new Response("Internal Server Error", { status: 500 });
-    // }
-// _ _ _
-
-  catch (error) {
-    console.error("POST /api/cart ERROR:", error);
-    return NextResponse.json(
-      { error: "Server error" },
-      { status: 500 }
-    );
   }
 
-
-  }
-
-  // 6. Return a 200 response to Stripe to acknowledge receipt
   return NextResponse.json({ received: true });
 }

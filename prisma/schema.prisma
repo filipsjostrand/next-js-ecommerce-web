@@ -6,22 +6,27 @@
 
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
   provider = "sqlite"
 }
 
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  role      String   @default("user")
-  createdAt DateTime @default(now())
+enum UserRole {
+  ADMIN
+  USER
+}
 
-  cartItems CartItem[]
-  orders    Order[] // Denna pekar på 'user' i Order-modellen
+model User {
+  id                String     @id @default(cuid())
+  email             String     @unique
+  password          String
+  role              UserRole   @default(USER)
+  emailVerified     DateTime?
+  verificationToken String?    @unique
+  createdAt         DateTime   @default(now())
+  cartItems         CartItem[] // Koppling till korgen
+  orders            Order[] // Koppling till ordrar
 }
 
 model Category {
@@ -36,8 +41,8 @@ model Product {
   id          String   @id @default(uuid())
   name        String
   slug        String   @unique
-  description String
-  price       Int // store in cents
+  description String?
+  price       Int // store in ören
   stock       Int
   imageUrl    String
   createdAt   DateTime @default(now())
@@ -62,17 +67,16 @@ model CartItem {
 }
 
 model Order {
-  id            String   @id @default(uuid())
-  userId        String? // Gjort valfri (?) för anonyma köp
-  customerName  String // Nytt: För att veta vem som köpt
-  customerEmail String // Nytt
-  address       String // Nytt
+  id            String      @id @default(cuid())
+  userId        String? // <---  ? här för att göra det valfritt
+  user          User?       @relation(fields: [userId], references: [id])
+  customerEmail String // Vi använder denna för att identifiera gäster
+  customerName  String
+  address       String
   total         Int
-  status        String // pending | paid | failed | refunded
-  createdAt     DateTime @default(now())
-
-  user  User?       @relation(fields: [userId], references: [id]) // Gjort valfri (?)
-  items OrderItem[]
+  status        String      @default("PENDING")
+  items         OrderItem[]
+  createdAt     DateTime    @default(now())
 }
 
 model OrderItem {

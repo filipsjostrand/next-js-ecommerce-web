@@ -33,7 +33,7 @@ export default function UserMenu() {
       ) : (
         <button
           onClick={() => signIn()}
-          className="text-sm font-bold bg-black text-white px-5 py-2 rounded-full hover:bg-zinc-800 transition shadow-sm"
+          className="text-sm font-bold bg-black text-white px-5 py-2 rounded-full hover:bg-zinc-800 transition shadow-sm cursor-pointer"
         >
           Log in
         </button>
