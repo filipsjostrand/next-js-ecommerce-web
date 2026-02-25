@@ -8,7 +8,7 @@ export default withAuth(
     const isAdminPage = req.nextUrl.pathname.startsWith("/admin");
 
     // Om man försöker nå admin men inte är admin i sin token
-    if (isAdminPage && token?.role !== "admin") {
+    if (isAdminPage && token?.role !== "ADMIN") {
       return NextResponse.redirect(new URL("/", req.url));
     }
   },

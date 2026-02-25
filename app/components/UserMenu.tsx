@@ -1,42 +1,61 @@
 "use client";
 
-import { signIn, signOut, useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
+import { User, LogOut, ShieldCheck } from "lucide-react";
 
 export default function UserMenu() {
   const { data: session, status } = useSession();
 
-  // Medan vi kollar om användaren är inloggad
-  if (status === "loading") return <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />;
+  // Laddnings-state
+  if (status === "loading") {
+    return <div className="w-10 h-10 rounded-full bg-gray-100 animate-pulse" />;
+  }
+
+  // Dynamisk länk för profil-ikonen: ADMIN -> /admin, USER -> /profile
+  const profileHref = session?.user?.role === "ADMIN" ? "/admin" : "/profile";
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-2">
       {session ? (
         <>
-          {/* Om användaren är Admin, visa en länk till instrumentpanelen */}
-          {session.user?.role === "admin" && (
+          {/* ADMIN-TAG (Visas bara för admins - ändrat till "ADMIN") */}
+          {session.user?.role === "ADMIN" && (
             <Link
               href="/admin"
-              className="text-sm font-medium bg-gray-100 px-3 py-1 rounded-full hover:bg-gray-200 transition"
+              className="hidden md:flex items-center gap-1 text-xs font-bold bg-amber-50 text-amber-700 px-3 py-1.5 rounded-full hover:bg-amber-100 transition border border-amber-200 mr-1"
             >
-              Admin
+              <ShieldCheck size={14} />
+              ADMIN
             </Link>
           )}
 
-          <button
-            onClick={() => signOut()}
-            className="text-sm font-semibold text-gray-600 hover:text-black transition"
+          {/* PROFIL-IKON (Nu med dynamisk länk) */}
+          <Link
+            href={profileHref} // <--- Ändrat här
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-zinc-100 hover:bg-zinc-200 transition-all border border-zinc-200"
+            title={session.user?.role === "ADMIN" ? "Admin Dashboard" : "Min profil"}
           >
-            Log out
+            <User size={20} className="text-zinc-700" />
+          </Link>
+
+          {/* LOG OUT-KNAPP */}
+          <button
+            onClick={() => signOut({ callbackUrl: "/" })}
+            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all"
+            title="Logga ut"
+          >
+            <LogOut size={20} />
           </button>
         </>
       ) : (
-        <button
-          onClick={() => signIn()}
-          className="text-sm font-bold bg-black text-white px-5 py-2 rounded-full hover:bg-zinc-800 transition shadow-sm cursor-pointer"
+        /* LOG IN-KNAPP */
+        <Link
+          href="/login"
+          className="text-sm font-bold bg-black text-white px-5 py-2 rounded-full hover:bg-zinc-800 transition shadow-sm"
         >
           Log in
-        </button>
+        </Link>
       )}
     </div>
   );

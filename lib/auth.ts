@@ -1,14 +1,30 @@
-// import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import { NextAuthOptions } from "next-auth";
+import { NextAuthOptions, DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
 import bcrypt from "bcrypt";
 
+// 1. TypeScript-definitioner för Session och JWT
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      role: string;
+    } & DefaultSession["user"]
+  }
+  interface User {
+    role: string;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    role: string;
+  }
+}
+
 export const authOptions: NextAuthOptions = {
-  // adapter: PrismaAdapter(db),
-  session: {
-    strategy: "jwt",
-  },
+  session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
   },
@@ -21,38 +37,40 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Missing credentials");
+          throw new Error("E-post och lösenord krävs");
         }
 
         const user = await db.user.findUnique({
           where: { email: credentials.email },
         });
 
-        // --- HÄR KLISTRAR DU IN LOGGARNA ---
-        console.log("-----------------------------------");
-        console.log("LOGIN DEBUG:");
-        console.log("Försöker logga in med:", credentials?.email);
-        console.log("Lösenord från form:", credentials?.password);
+        console.log("--- INLOGGNINGSFÖRSÖK ---");
+        console.log("Användare:", credentials.email);
 
         if (!user) {
-          console.log("RESULTAT: Användaren hittades inte i databasen!");
-          throw new Error("User not found");
+          console.log("Resultat: Användaren hittades inte");
+          throw new Error("Fel e-post eller lösenord");
         }
-
-        console.log("Hash från DB:", user.password);
 
         const isPasswordValid = await bcrypt.compare(
           credentials.password,
           user.password
         );
 
-        console.log("Matchar lösenordet?:", isPasswordValid);
-        console.log("-----------------------------------");
-        // ------------------------------------------
-
         if (!isPasswordValid) {
-          throw new Error("Invalid password");
+          console.log("Resultat: Fel lösenord");
+          throw new Error("Fel e-post eller lösenord");
         }
+
+        // --- SÄKERHETSSPÄRR: NU INAKTIVERAD ---  (pga fake-admin-e-post) - I ett verkligt case bör det finnas en riktig admin-e-post (som kan verifiera konto-innehavaren)
+        // if (!user.emailVerified) {
+        //   console.log("Resultat: Blockad - Ej verifierad e-post");
+        //   // Detta meddelande fångas upp i din LoginPage.tsx
+        //   throw new Error("Vänligen bekräfta din e-post innan du loggar in.");
+        // }
+
+        console.log("Resultat: Inloggning lyckades!");
+        console.log("--------------------------");
 
         return {
           id: user.id,
@@ -65,7 +83,6 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        // Vi castar user till User-typen vi nyss utökade
         token.id = user.id;
         token.role = user.role;
       }

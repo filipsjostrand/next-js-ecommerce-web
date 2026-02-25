@@ -18,15 +18,22 @@ enum UserRole {
 }
 
 model User {
-  id                String     @id @default(cuid())
-  email             String     @unique
+  id                String    @id @default(cuid())
+  email             String    @unique
   password          String
-  role              UserRole   @default(USER)
+  role              UserRole  @default(USER)
   emailVerified     DateTime?
-  verificationToken String?    @unique
-  createdAt         DateTime   @default(now())
-  cartItems         CartItem[] // Koppling till korgen
-  orders            Order[] // Koppling till ordrar
+  verificationToken String?   @unique
+
+  // Fields for password reset
+  resetToken        String?   @unique
+  resetTokenExpiry  DateTime?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime @default(now()) @updatedAt
+
+  cartItems         CartItem[]
+  orders            Order[]
 }
 
 model Category {
@@ -67,17 +74,22 @@ model CartItem {
 }
 
 model Order {
-  id            String      @id @default(cuid())
-  userId        String? // <---  ? här för att göra det valfritt
-  user          User?       @relation(fields: [userId], references: [id])
-  customerEmail String // Vi använder denna för att identifiera gäster
-  customerName  String
-  address       String
-  total         Int
-  status        String      @default("PENDING")
-  items         OrderItem[]
-  createdAt     DateTime    @default(now())
+  id              String      @id @default(cuid())
+  userId          String?     // <---  "?" gör userId valfritt
+  user            User?       @relation(fields: [userId], references: [id])
+  customerEmail   String      // Kan användas för att identifiera "gäster"
+  customerName    String
+  address         String
+  total           Int         // Lagras i ören precis som Product
+  status          String      @default("PENDING")
+
+  // LÄGG TILL DETTA FÄLT:
+  stripeSessionId String?     @unique
+
+  items           OrderItem[]
+  createdAt       DateTime    @default(now())
 }
+
 
 model OrderItem {
   id        String @id @default(uuid())

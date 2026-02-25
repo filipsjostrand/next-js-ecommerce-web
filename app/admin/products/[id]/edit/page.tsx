@@ -21,9 +21,9 @@ export default async function EditProductPage({
   if (!product) {
     return (
       <div className="p-8 text-center">
-        <h1 className="text-xl font-bold">Produkten hittades inte.</h1>
+        <h1 className="text-xl font-bold">Product not found.</h1>
         <Link href="/admin/products/new" className="text-blue-600 underline">
-          Gå tillbaka till listan
+          Return to list
         </Link>
       </div>
     );

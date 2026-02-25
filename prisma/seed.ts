@@ -22,12 +22,12 @@ async function main() {
     where: { email: adminEmail },
     update: {
       password: hashedPassword,
-      role: "admin",
+      role: "ADMIN",
     },
     create: {
       email: adminEmail,
       password: hashedPassword,
-      role: "admin",
+      role: "ADMIN",
     },
   });
 
@@ -75,8 +75,8 @@ async function main() {
         categoryId: fotboll!.id,
       },
       {
-        name: "Justerbara Hantlar",
-        slug: "justerbara-hantlar",
+        name: "Adjustable-Dumbbells",
+        slug: "adjustable-dumbbells",
         description: "Platsbesparande hantlar perfekt för hemmaträning.",
         price: 89900, // 899 kr
         stock: 20,
