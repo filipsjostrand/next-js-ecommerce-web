@@ -16,7 +16,8 @@ export async function GET(): Promise<Response> {
       include: { product: true },
     });
 
-    const totalCount = cartItems.reduce<number>((acc, item) => acc + item.quantity, 0);
+    const totalCount = cartItems.reduce(
+  (acc: number, item: { quantity: number }) => acc + item.quantity, 0);
 
     return NextResponse.json({
       items: cartItems,
