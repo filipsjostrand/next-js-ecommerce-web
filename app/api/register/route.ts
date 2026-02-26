@@ -1,10 +1,8 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs"; // bcryptjs för bättre kompatibilitet i edge/serverless
 import crypto from "crypto";
 import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: Request) {
   try {
@@ -44,38 +42,43 @@ export async function POST(req: Request) {
     });
 
     // 5. Send verification email
+    const apiKey = process.env.RESEND_API_KEY;
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
     const verificationLink = `${baseUrl}/api/verify?token=${verificationToken}`;
 
-    try {
-      await resend.emails.send({
-        // NOTE: Change this to your registered domain in production!
-        from: "Sportify <onboarding@resend.dev>",
-        to: email,
-        subject: "Verify your account - Sportify",
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 40px; border: 1px solid #f0f0f0; border-radius: 16px;">
-            <h1 style="color: #000; font-size: 24px;">Welcome to Sportify!</h1>
-            <p style="color: #666; font-size: 16px; line-height: 24px;">
-              Thank you for signing up. Please verify your email address to activate your account and start shopping.
-            </p>
-            <div style="margin: 32px 0;">
-              <a href="${verificationLink}"
-                 style="background-color: #000; color: #fff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: bold; display: inline-block;">
-                Verify Email Address
-              </a>
+    // Vi initierar och skickar bara om vi har en API-nyckel
+    if (apiKey) {
+      try {
+        const resend = new Resend(apiKey);
+        await resend.emails.send({
+          from: "Sportify <onboarding@resend.dev>",
+          to: email.toLowerCase(),
+          subject: "Verify your account - Sportify",
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 40px; border: 1px solid #f0f0f0; border-radius: 16px;">
+              <h1 style="color: #000; font-size: 24px;">Welcome to Sportify!</h1>
+              <p style="color: #666; font-size: 16px; line-height: 24px;">
+                Thank you for signing up. Please verify your email address to activate your account and start shopping.
+              </p>
+              <div style="margin: 32px 0;">
+                <a href="${verificationLink}"
+                   style="background-color: #000; color: #fff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: bold; display: inline-block;">
+                  Verify Email Address
+                </a>
+              </div>
+              <p style="font-size: 12px; color: #999; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
+                If the button doesn't work, copy and paste this link into your browser:<br>
+                <span style="color: #000;">${verificationLink}</span>
+              </p>
             </div>
-            <p style="font-size: 12px; color: #999; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
-              If the button doesn't work, copy and paste this link into your browser:<br>
-              <span style="color: #000;">${verificationLink}</span>
-            </p>
-          </div>
-        `
-      });
-    } catch (mailError) {
-      console.error("MAIL_SEND_ERROR:", mailError);
-      // We return success but log the error.
-      // In production, you might want to tell the user that the email failed.
+          `
+        });
+      } catch (mailError) {
+        console.error("MAIL_SEND_ERROR:", mailError);
+        // Vi låter användaren skapas även om mejlet misslyckas, men loggar det.
+      }
+    } else {
+      console.warn("Skipping email send: RESEND_API_KEY is not set.");
     }
 
     return NextResponse.json({

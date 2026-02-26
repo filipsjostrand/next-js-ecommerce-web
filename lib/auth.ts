@@ -1,7 +1,7 @@
 import { NextAuthOptions, DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 // 1. TypeScript-definitioner för Session och JWT
 declare module "next-auth" {
