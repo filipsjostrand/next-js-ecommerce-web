@@ -3,21 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-// 1. Definiera tydliga typer
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  images: string[];
-}
-
-interface CartItem {
-  id: string;
-  productId: string;
-  quantity: number;
-  product: Product;
-}
-
 interface LocalCartItem {
   id?: string | number;
   quantity: number;
@@ -25,51 +10,47 @@ interface LocalCartItem {
 
 interface ApiCartResponse {
   count?: number;
-  items?: CartItem[];
 }
 
 export default function CartIcon() {
   const [count, setCount] = useState<number>(0);
 
   useEffect(() => {
-    // Vi flyttar logiken inuti useEffect för att undvika cascading renders
     const syncCart = async () => {
-      // 1. Kolla LocalStorage först
+      // 1. Hämta från localStorage direkt
       const localData = localStorage.getItem("cart");
-      let currentCount = 0;
+      let localTotal = 0;
 
       if (localData) {
         try {
           const parsedCart: LocalCartItem[] = JSON.parse(localData);
-          currentCount = parsedCart.reduce((acc, item) => acc + (item.quantity || 0), 0);
+          localTotal = parsedCart.reduce((acc, item) => acc + (item.quantity || 0), 0);
         } catch (err) {
-          console.error("LocalStorage parsing error", err);
+          console.error("Cart parse error", err);
         }
       }
 
-      // Sätt det lokala värdet direkt
-      setCount(currentCount);
-
-      // 2. Kolla API:et (Databasen)
+      // 2. Försök synka med API
       try {
         const res = await fetch("/api/cart");
         if (res.ok) {
           const data: ApiCartResponse = await res.json();
-          if (typeof data.count === "number") {
-            setCount(data.count);
-          }
+          const apiCount = data.count ?? 0;
+
+          // FIXEN: Ta det högsta värdet av lokalt och API.
+          // Detta förhindrar att cirkeln försvinner om API:et inte hunnit ikapp.
+          setCount(Math.max(localTotal, apiCount));
+        } else {
+          setCount(localTotal);
         }
       } catch (e) {
-        // Om API misslyckas behåller vi bara värdet från localStorage
+        setCount(localTotal);
       }
     };
 
     syncCart();
 
-    const handleUpdate = () => {
-      syncCart();
-    };
-
+    const handleUpdate = () => syncCart();
     window.addEventListener("cartUpdated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
 
@@ -77,20 +58,20 @@ export default function CartIcon() {
       window.removeEventListener("cartUpdated", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
     };
-  }, []); // Tom array = körs bara en gång vid mount
+  }, []);
 
   return (
     <Link
       href="/cart"
       className="relative flex items-center hover:scale-110 transition-transform p-2"
     >
-      <span className="text-2xl" role="img" aria-label="cart icon">🛒</span>
+      <span className="text-2xl" role="img" aria-label="cart">🛒</span>
 
       {count > 0 && (
         <span
-          key={`badge-${count}`}
+          key={`cart-badge-${count}`}
           className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-md border border-white"
-          style={{ zIndex: 50 }}
+          style={{ zIndex: 50, pointerEvents: 'none' }}
         >
           {count > 99 ? "99+" : count}
         </span>

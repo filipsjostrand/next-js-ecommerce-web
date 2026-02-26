@@ -3,11 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-export async function GET() {
+export async function GET(): Promise<Response> {
   try {
     const session = await getServerSession(authOptions);
 
-    // Om ingen är inloggad, returnera tom lista och 0 (viktigt för ikonen!)
     if (!session?.user) {
       return NextResponse.json({ items: [], count: 0 });
     }
@@ -17,7 +16,6 @@ export async function GET() {
       include: { product: true },
     });
 
-    // Här räknar vi ut totalen som ikonen använder
     const totalCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
     return NextResponse.json({
@@ -25,7 +23,6 @@ export async function GET() {
       count: totalCount,
     });
   } catch (error) {
-    console.error("Cart GET Error:", error);
-    return NextResponse.json({ items: [], count: 0 });
+    return NextResponse.json({ items: [], count: 0 }, { status: 500 });
   }
 }
