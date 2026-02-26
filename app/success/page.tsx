@@ -8,7 +8,20 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Definiera typ för order-items för att säkra loopar
+// Vi definierar en exakt typ för det vi behöver, utan att förlita oss på
+// djupt kapslade Stripe-medlemmar som 'ShippingDetails'
+type CheckoutSessionWithDetails = Stripe.Checkout.Session & {
+  shipping_details: {
+    address: Stripe.Address | null;
+    name: string | null;
+  } | null;
+  customer_details: {
+    address: Stripe.Address | null;
+    email: string | null;
+    name: string | null;
+  } | null;
+};
+
 interface NewOrderItem {
   productId: string;
   quantity: number;
@@ -24,17 +37,16 @@ export default async function SuccessPage({
 
   if (!sessionId) redirect("/");
 
-  // Här lägger vi till "as Stripe.Checkout.Session" för att fixa typfelet
+  // Använd unknown -> CheckoutSessionWithDetails för att passera TS-kontrollen
   const session = (await stripe.checkout.sessions.retrieve(sessionId, {
     expand: ["line_items"],
-  })) as Stripe.Checkout.Session;
+  })) as unknown as CheckoutSessionWithDetails;
 
   const existingOrder = await db.order.findFirst({
     where: { stripeSessionId: sessionId },
     include: { items: true }
   });
 
-  // Skapa variabel för ordern så vi kan använda den i UI:t oavsett om den var ny eller gammal
   let order = existingOrder;
 
   if (!existingOrder) {
@@ -55,7 +67,6 @@ export default async function SuccessPage({
       expand: ["data.price.product"],
     });
 
-    // Skapa ordern och tilldela till variabeln
     order = await db.order.create({
       data: {
         total: session.amount_total || 0,
@@ -68,7 +79,6 @@ export default async function SuccessPage({
         items: {
           create: lineItemsDetails.data.map((item) => {
             const product = item.price?.product as Stripe.Product;
-            // Säkerställ att vi har ett productId från metadata eller produkt-objektet
             const pId = (item.metadata?.productId) || product?.metadata?.productId || "unknown";
 
             return {
@@ -84,24 +94,22 @@ export default async function SuccessPage({
       },
     });
 
-    // Uppdatera lager
     if (order && order.items) {
-        await Promise.all(
-          order.items.map((item: NewOrderItem) =>
-            db.product.update({
-              where: { id: item.productId },
-              data: { stock: { decrement: item.quantity } },
-            })
-          )
-        );
+      await Promise.all(
+        order.items.map((item: NewOrderItem) =>
+          db.product.update({
+            where: { id: item.productId },
+            data: { stock: { decrement: item.quantity } },
+          })
+        )
+      );
     }
 
-    // Skicka mail om e-post finns
     if (session.customer_details?.email && order) {
       const productListHtml = lineItemsDetails.data.map((item) => `
         <li style="margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px; list-style: none;">
           <strong>${item.description}</strong><br />
-          Antal: ${item.quantity} st — ${(item.amount_total / 100).toFixed(2)} kr
+          Antal: ${item.quantity} st — ${((item.amount_total || 0) / 100).toFixed(2)} kr
         </li>
       `).join("");
 
@@ -130,8 +138,7 @@ export default async function SuccessPage({
     }
   }
 
-  // Om order mot förmodan fortfarande är null efter logiken ovan
-  if (!order) return redirect("/");
+  if (!order) redirect("/");
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center p-4 text-black">
