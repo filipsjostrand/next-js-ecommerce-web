@@ -1,11 +1,10 @@
 {
   "compilerOptions": {
-    "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
+    // 1. baseUrl borttaget
+    // 2. ignoreDeprecations borttaget
+
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"] // Ändra till relativ sökväg (punkt i början)
     },
     "target": "ES2017",
     "lib": [
