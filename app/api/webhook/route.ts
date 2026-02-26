@@ -4,6 +4,13 @@ import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
 
+// Utöka Stripe-typen så att shipping_details finns
+type CheckoutSessionWithShipping = Stripe.Checkout.Session & {
+  shipping_details?: {
+    address?: Stripe.Address;
+  };
+};
+
 export async function POST(req: Request) {
   const body = await req.text();
   const headerList = await headers();
@@ -27,15 +34,16 @@ export async function POST(req: Request) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
 
-    // Hämta sessionen med rätt expansioner
-    const expandedSession = await stripe.checkout.sessions.retrieve(session.id, {
-      expand: ["line_items", "line_items.data.price.product", "shipping_details"],
-    });
+    // Hämta sessionen med rätt expansioner och casta till vår utökade typ
+    const expandedSession = (await stripe.checkout.sessions.retrieve(session.id, {
+      expand: ["line_items.data.price.product", "shipping_details"],
+    })) as CheckoutSessionWithShipping;
 
     const userId = expandedSession.metadata?.userId || null;
     const customerEmail = expandedSession.customer_details?.email || "";
     const customerName = expandedSession.customer_details?.name || "";
 
+    // Adresshantering (nu fungerar shipping_details utan TS-fel)
     const addr =
       expandedSession.shipping_details?.address ||
       expandedSession.customer_details?.address;
@@ -46,6 +54,7 @@ export async function POST(req: Request) {
 
     try {
       await db.$transaction(async (tx) => {
+        // 1. Skapa order
         const order = await tx.order.create({
           data: {
             userId,
@@ -57,6 +66,7 @@ export async function POST(req: Request) {
           },
         });
 
+        // 2. Orderrader
         const lineItems = expandedSession.line_items?.data;
 
         if (lineItems) {
@@ -74,6 +84,7 @@ export async function POST(req: Request) {
                 },
               });
 
+              // 3. Minska lagret
               await tx.product.update({
                 where: { id: productId },
                 data: {
@@ -84,6 +95,7 @@ export async function POST(req: Request) {
           }
         }
 
+        // 4. Töm kundvagnen om användaren var inloggad
         if (userId) {
           await tx.cartItem.deleteMany({ where: { userId } });
         }
