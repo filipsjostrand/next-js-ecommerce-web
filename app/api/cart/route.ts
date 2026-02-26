@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-// Next.js 16 kräver att params definieras som ett Promise
+// Next.js 16 kräver att params definieras som en Promise
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
