@@ -1,10 +1,21 @@
-// lib/db.ts
+import { PrismaClient } from "@prisma/client";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 
-// Skapar konfigurationen som biblioteket efterfrågar
-export const dbConfig = {
-  url: "sqlite.db", // Här är 'url' som TypeScript klagade på att den saknade
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
 };
 
-// Om databasen behöver användas på andra ställen i koden manuellt:
-import Database from 'better-sqlite3';
-export const sqlite = new Database(dbConfig.url);
+// I Prisma 7 skickar vi URL:en direkt till adaptern här
+const adapter = new PrismaBetterSqlite3({
+  url: "file:./prisma/dev.db", // Se till att sökvägen stämmer (ofta med file: prefix)
+});
+
+export const db =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    adapter,
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = db;
+}
