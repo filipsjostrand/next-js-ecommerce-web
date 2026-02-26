@@ -8,7 +8,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [agreeToTerms, setAgreeToTerms] = useState(false); // Ny state för checkbox
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [status, setStatus] = useState<{ type: "success" | "error" | null; message: string }>({
     type: null,
     message: "",
@@ -20,14 +20,12 @@ export default function RegisterPage() {
     /[0-9]/.test(password) &&
     /[^A-Za-z0-9]/.test(password);
 
-  // Knappen är bara aktiv om lösenordet är starkt OCH bocken är ikryssad
   const canSubmit = isStrong && agreeToTerms;
 
-const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
 
-    // Återställ status vid nytt försök
     setStatus({ type: null, message: "" });
 
     try {
@@ -45,20 +43,17 @@ const handleSubmit = async (e: React.FormEvent) => {
           message: "Account created! Please check your email to verify your account."
         });
       } else {
-        // Om servern skickar ett felmeddelande i JSON-format
         throw new Error(data.error || "Registration failed");
       }
     } catch (err) {
-      // TypeScript vet inte vad 'err' är, så vi mappar det till en sträng säkert
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
-
       setStatus({
         type: "error",
         message: errorMessage
       });
     }
   };
-  
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg border border-gray-200">
@@ -74,7 +69,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">E-mail</label>
+            <label className="block text-sm font-medium text-gray-700">Email</label>
             <input
               type="email"
               value={email}
@@ -84,7 +79,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             />
           </div>
 
-          <div className="relative">
+          <div>
             <label className="block text-sm font-medium text-gray-700">Password</label>
             <div className="relative">
               <input
@@ -97,7 +92,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 mt-0.5 text-gray-400 hover:text-gray-600 z-10"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -111,7 +106,6 @@ const handleSubmit = async (e: React.FormEvent) => {
             </div>
           </div>
 
-          {/* CHECKBOX FÖR SAMTYCKE */}
           <div className="flex items-start gap-3 mt-6">
             <input
               id="consent"
@@ -122,7 +116,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               required
             />
             <label htmlFor="consent" className="text-sm text-gray-600 leading-tight cursor-pointer">
-              Jag godkänner att **Sportify** lagrar mina kontaktuppgifter i enlighet med gällande dataskyddsregler.
+              Jag godkänner att <span className="font-bold text-black">Sportify</span> lagrar mina kontaktuppgifter i enlighet med gällande dataskyddsregler.
             </label>
           </div>
 
@@ -131,7 +125,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             disabled={!canSubmit}
             className={`w-full py-3 rounded-lg font-semibold transition mt-4 ${
               canSubmit
-                ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md"
+                ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md cursor-pointer"
                 : "bg-gray-200 text-gray-400 cursor-not-allowed"
             }`}
           >

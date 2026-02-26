@@ -11,72 +11,79 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { email, password } = body;
 
-    // 1. Validera input
+    // 1. Basic validation
     if (!email || !password) {
-      return NextResponse.json({ error: "E-post och lösenord krävs" }, { status: 400 });
+      return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
 
-    // 2. Kontrollera om användaren redan finns
+    if (password.length < 6) {
+      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
+    }
+
+    // 2. Check if user already exists
     const existingUser = await db.user.findUnique({
-      where: { email }
+      where: { email: email.toLowerCase() } // Case-insensitive check
     });
 
     if (existingUser) {
-      return NextResponse.json({ error: "E-postadressen är redan registrerad" }, { status: 400 });
+      return NextResponse.json({ error: "Email is already registered" }, { status: 400 });
     }
 
-    // 3. Förbered användardata
+    // 3. Prepare data
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = crypto.randomBytes(32).toString("hex");
 
-    // 4. Skapa användaren i databasen
-    // Notera: emailVerified lämnas som null (standard) tills de klickar på länken
+    // 4. Create user
     const user = await db.user.create({
       data: {
-        email,
+        email: email.toLowerCase(),
         password: hashedPassword,
         verificationToken,
-        role: "USER" // Standardroll för nya registreringar
+        role: "USER"
       },
     });
 
-    // 5. Skicka bekräftelsemejl via Resend
+    // 5. Send verification email
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
     const verificationLink = `${baseUrl}/api/verify?token=${verificationToken}`;
 
     try {
       await resend.emails.send({
+        // NOTE: Change this to your registered domain in production!
         from: "Sportify <onboarding@resend.dev>",
         to: email,
-        subject: "Bekräfta ditt konto på Sportify",
+        subject: "Verify your account - Sportify",
         html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-            <h1 style="color: #333;">Välkommen till Sportify!</h1>
-            <p>Tack för att du skapat ett konto. För att kunna logga in måste du först bekräfta din e-postadress.</p>
-            <div style="margin: 30px 0;">
+          <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 40px; border: 1px solid #f0f0f0; border-radius: 16px;">
+            <h1 style="color: #000; font-size: 24px;">Welcome to Sportify!</h1>
+            <p style="color: #666; font-size: 16px; line-height: 24px;">
+              Thank you for signing up. Please verify your email address to activate your account and start shopping.
+            </p>
+            <div style="margin: 32px 0;">
               <a href="${verificationLink}"
-                 style="background-color: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
-                Verifiera mitt konto
+                 style="background-color: #000; color: #fff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: bold; display: inline-block;">
+                Verify Email Address
               </a>
             </div>
-            <p style="font-size: 12px; color: #666;">
-              Om knappen inte fungerar, kopiera och klistra in denna länk i din webbläsare:<br>
-              ${verificationLink}
+            <p style="font-size: 12px; color: #999; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
+              If the button doesn't work, copy and paste this link into your browser:<br>
+              <span style="color: #000;">${verificationLink}</span>
             </p>
           </div>
         `
       });
     } catch (mailError) {
-      // Vi loggar felet men låter användarskapandet bestå
       console.error("MAIL_SEND_ERROR:", mailError);
+      // We return success but log the error.
+      // In production, you might want to tell the user that the email failed.
     }
 
     return NextResponse.json({
-      message: "Användare skapad. Kontrollera din e-post för att verifiera kontot."
+      message: "Account created! Please check your email to verify your account."
     }, { status: 201 });
 
   } catch (error) {
     console.error("REGISTER_ERROR:", error);
-    return NextResponse.json({ error: "Kunde inte skapa konto" }, { status: 500 });
+    return NextResponse.json({ error: "Could not create account" }, { status: 500 });
   }
 }

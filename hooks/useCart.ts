@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 
-// 1. Definiera typerna för att slippa any
 interface CartItem {
   productId: string;
   quantity: number;
@@ -14,24 +13,29 @@ interface CartItem {
 }
 
 export function useCart() {
-  // Använd interfacet i state
-  const [items, setItems] = useState<CartItem[]>([]);
-
-  // Ladda från LocalStorage vid start
-  useEffect(() => {
-    const savedCart = localStorage.getItem("cart");
-    if (savedCart) {
-      try {
-        setItems(JSON.parse(savedCart));
-      } catch (e) {
-        console.error("Kunde inte tolka kundvagnen:", e);
+  // 1. Initialisera state direkt från localStorage
+  // Detta körs bara EN gång vid första renderingen
+  const [items, setItems] = useState<CartItem[]>(() => {
+    if (typeof window !== "undefined") {
+      const savedCart = localStorage.getItem("cart");
+      if (savedCart) {
+        try {
+          return JSON.parse(savedCart);
+        } catch (e) {
+          console.error("Kunde inte tolka kundvagnen:", e);
+          return [];
+        }
       }
     }
-  }, []);
+    return [];
+  });
 
-  // Typa 'product' så den matchar vad vi sparar
+  // 2. Synka localStorage när 'items' ändras
+  useEffect(() => {
+    localStorage.setItem("cart", JSON.stringify(items));
+  }, [items]);
+
   const addToCart = (product: CartItem["product"], quantity: number) => {
-    // Skapa en kopia av items för att inte mutera state direkt
     const newItems = [...items];
     const existing = newItems.find((i) => i.productId === product.id);
 
@@ -51,9 +55,9 @@ export function useCart() {
     }
 
     setItems(newItems);
-    localStorage.setItem("cart", JSON.stringify(newItems));
+    // Vi behöver inte anropa localStorage.setItem här längre
+    // eftersom useEffect ovan sköter det automatiskt när setItems körs.
 
-    // Uppdatera ikonen och låt Drawer veta
     window.dispatchEvent(new Event("cartUpdated"));
     window.dispatchEvent(new Event("showCartDrawer"));
   };
@@ -61,7 +65,6 @@ export function useCart() {
   return {
     items,
     addToCart,
-    // TypeScript fattar nu att 'b.quantity' är ett nummer
     count: items.reduce((a, b) => a + b.quantity, 0),
   };
 }

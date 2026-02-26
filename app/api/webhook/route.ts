@@ -5,7 +5,6 @@ import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
 
 export async function POST(req: Request) {
-  // 1. Hämta bodyn som råtext (Viktigt!)
   const body = await req.text();
   const headerList = await headers();
   const sig = headerList.get("stripe-signature");
@@ -20,18 +19,17 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
-    // 2. Verifiera att eventet faktiskt kommer från Stripe
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
-  } catch (err: any) {
-    console.error(`❌ Webhook Signature Validation Failed: ${err.message}`);
-    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
+    console.error(`❌ Webhook Signature Validation Failed: ${errorMessage}`);
+    return new Response(`Webhook Error: ${errorMessage}`, { status: 400 });
   }
 
-  // 3. Hantera betalningen
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
 
-    // Expandera sessionen för att få med line_items (produkterna)
+    // Hämta sessionen igen med line_items expanderade
     const expandedSession = await stripe.checkout.sessions.retrieve(session.id, {
       expand: ["line_items.data.price.product"],
     });
@@ -39,12 +37,16 @@ export async function POST(req: Request) {
     const userId = expandedSession.metadata?.userId;
     const customerEmail = expandedSession.customer_details?.email || "";
     const customerName = expandedSession.customer_details?.name || "";
+
+    // Adresshantering
     const addr = expandedSession.shipping_details?.address || expandedSession.customer_details?.address;
-    const addressString = addr ? `${addr.line1}, ${addr.postal_code} ${addr.city}` : "Ingen adress";
+    const addressString = addr
+      ? `${addr.line1}${addr.line2 ? `, ${addr.line2}` : ""}, ${addr.postal_code} ${addr.city}`
+      : "No address provided";
 
     try {
       await db.$transaction(async (tx) => {
-        // Skapa ordern
+        // 1. Skapa ordern
         const order = await tx.order.create({
           data: {
             userId: userId || null,
@@ -56,15 +58,18 @@ export async function POST(req: Request) {
           },
         });
 
-        // Loopa igenom produkterna och minska lagret
         const lineItems = expandedSession.line_items?.data;
+
         if (lineItems) {
           for (const item of lineItems) {
-            const product = item.price?.product as Stripe.Product;
-            const productId = product.metadata.productId;
+            // Här castar vi produkten korrekt för att komma åt metadata
+            const stripeProduct = item.price?.product as Stripe.Product;
+
+            // VIKTIGT: Du måste ha satt productId i metadata när du skapade sessionen!
+            const productId = stripeProduct.metadata?.productId;
 
             if (productId) {
-              // Skapa order-rad
+              // 2. Skapa order-rad
               await tx.orderItem.create({
                 data: {
                   orderId: order.id,
@@ -74,23 +79,30 @@ export async function POST(req: Request) {
                 },
               });
 
-              // Minska lagret i DB
+              // 3. Minska lagret (Decrement stock)
               await tx.product.update({
                 where: { id: productId },
-                data: { stock: { decrement: item.quantity || 1 } },
+                data: {
+                  stock: {
+                    decrement: item.quantity || 1
+                  }
+                },
               });
             }
           }
         }
 
-        // Töm korgen om användaren var inloggad
+        // 4. Töm databas-kundvagnen om användaren var inloggad
         if (userId) {
-          await tx.cartItem.deleteMany({ where: { userId } });
+          await tx.cartItem.deleteMany({
+            where: { userId },
+          });
         }
       });
-      console.log("✅ Order och lager uppdaterat!");
+
+      console.log("✅ Order processed, stock updated, and cart cleared!");
     } catch (dbError) {
-      console.error("❌ Database Error:", dbError);
+      console.error("❌ Database Transaction Error:", dbError);
       return new Response("Database Error", { status: 500 });
     }
   }

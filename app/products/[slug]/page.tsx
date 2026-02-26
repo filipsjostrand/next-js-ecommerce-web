@@ -5,40 +5,52 @@ import AddToCartButton from "@/app/components/AddToCartButton";
 
 export const revalidate = 60;
 
-// I Next.js 15 är params ett Promise
+// Typa props för Next.js 15
 type Props = {
   params: Promise<{ slug: string }>;
 };
 
+// Skapa ett interface för att säkra datan från Prisma
+interface ProductWithCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  price: number;
+  imageUrl: string | null;
+  category: {
+    name: string;
+  };
+}
+
 export default async function ProductPage({ params }: Props) {
-  // 1. Du MÅSTE vänta på params innan du hämtar slug
   const { slug } = await params;
 
-  // 2. Nu har slug ett värde (t.ex. "pro-match-football") istället för undefined
-  const product = await db.product.findUnique({
+  // Hämta produkten och casta den
+  const product = (await db.product.findUnique({
     where: { slug },
     include: { category: true },
-  });
+  })) as unknown as ProductWithCategory | null;
 
   if (!product) {
     notFound();
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-12">
+    <main className="mx-auto max-w-6xl px-6 py-12 text-black">
       <div className="grid md:grid-cols-2 gap-12">
-        <div className="relative aspect-square w-full">
+        <div className="relative aspect-square w-full bg-gray-50 rounded-lg overflow-hidden border">
           <Image
-            src={product.imageUrl}
+            src={product.imageUrl || "/placeholder.png"} // Fallback om bilden saknas
             alt={product.name}
             fill
-            className="object-cover rounded-lg"
+            className="object-cover"
             priority
           />
         </div>
 
         <div>
-          <p className="text-sm text-gray-500 mb-2">
+          <p className="text-sm text-gray-500 mb-2 uppercase tracking-wide">
             {product.category.name}
           </p>
 
@@ -46,20 +58,20 @@ export default async function ProductPage({ params }: Props) {
             {product.name}
           </h1>
 
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 mb-6 leading-relaxed">
             {product.description}
           </p>
 
           <p className="text-2xl font-semibold mb-6">
             {(product.price / 100).toFixed(0)} kr
           </p>
-          {/* Skicka med HELA product-objektet istället för bara id */}
+
           <AddToCartButton
             product={{
               id: product.id,
               name: product.name,
               price: product.price,
-              imageUrl: product.imageUrl
+              imageUrl: product.imageUrl || "/placeholder.png" // Säkra även här
             }}
           />
         </div>
