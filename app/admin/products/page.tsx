@@ -2,23 +2,37 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 
+// 1. Definiera typerna
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface ProductWithCategory {
+  id: string;
+  name: string;
+  price: number;
+  createdAt: Date;
+  category: Category | null;
+}
+
 export default async function AdminProducts() {
-  const products = await db.product.findMany({
+  // 2. Casta Prisma-resultaten till våra interfaces
+  const products = (await db.product.findMany({
     include: { category: true },
     orderBy: { createdAt: "desc" },
-  });
+  })) as unknown as ProductWithCategory[];
+
+  const categories = (await db.category.findMany()) as Category[];
 
   const formatter = new Intl.NumberFormat("sv-SE", {
     style: "currency",
     currency: "SEK",
   });
 
-  const categories = await db.category.findMany();
-
   // SERVER ACTION: Lägg till produkt
   async function addProduct(formData: FormData) {
     "use server";
-
     const name = formData.get("name") as string;
     const price = Math.round(parseFloat(formData.get("price") as string) * 100);
     const description = formData.get("description") as string;
@@ -31,7 +45,7 @@ export default async function AdminProducts() {
       data: { name, slug, price, description, imageUrl, categoryId, stock },
     });
 
-    revalidatePath("/admin/products/new");
+    revalidatePath("/admin/products");
   }
 
   // SERVER ACTION: Ta bort produkt
@@ -39,7 +53,7 @@ export default async function AdminProducts() {
     "use server";
     const id = formData.get("id") as string;
     await db.product.delete({ where: { id } });
-    revalidatePath("/admin/products/new");
+    revalidatePath("/admin/products");
   }
 
   return (
@@ -56,7 +70,8 @@ export default async function AdminProducts() {
           <input name="imageUrl" placeholder="Bild-URL" className="border p-2 rounded text-black" required />
           <select name="categoryId" className="border p-2 rounded text-black" required>
             <option value="">Select category</option>
-            {categories.map(cat => (
+            {/* FIX 1: Explicit typ på cat */}
+            {categories.map((cat: Category) => (
               <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
           </select>
@@ -81,14 +96,14 @@ export default async function AdminProducts() {
               </tr>
             </thead>
             <tbody>
-              {products.map((p) => (
+              {/* FIX 2: Explicit typ på p */}
+              {products.map((p: ProductWithCategory) => (
                 <tr key={p.id} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="p-4 font-medium">{p.name}</td>
-                  <td className="p-4 text-gray-500">{p.category?.name}</td>
+                  <td className="p-4 text-gray-500">{p.category?.name || "Ingen kategori"}</td>
                   <td className="p-4 font-medium">{formatter.format(p.price / 100)}</td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end gap-4">
-                      {/* EDIT-KNAPP */}
                       <Link
                         href={`/admin/products/${p.id}/edit`}
                         className="text-blue-600 hover:underline font-medium cursor-pointer"
@@ -96,7 +111,6 @@ export default async function AdminProducts() {
                         Edit
                       </Link>
 
-                      {/* DELETE-KNAPP (Inuti ett form för att fungera i Server Component) */}
                       <form action={deleteProduct}>
                         <input type="hidden" name="id" value={p.id} />
                         <button

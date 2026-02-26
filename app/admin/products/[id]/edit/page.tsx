@@ -3,20 +3,35 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
+// 1. Definiera typerna för produkt och kategori
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  imageUrl: string | null;
+  description: string | null;
+  categoryId: string | null;
+}
+
 export default async function EditProductPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  // 1. Vänta på params (Viktigt i Next.js 15)
   const { id } = await params;
 
-  // 2. Hämta produkten och kategorier
-  const product = await db.product.findUnique({
+  // 2. Hämta data med typer
+  const product = (await db.product.findUnique({
     where: { id },
-  });
+  })) as Product | null;
 
-  const categories = await db.category.findMany();
+  const categories = (await db.category.findMany()) as Category[];
 
   if (!product) {
     return (
@@ -29,12 +44,11 @@ export default async function EditProductPage({
     );
   }
 
-  // 3. Server Action för att spara ändringar
+  // 3. Server Action
   async function updateProduct(formData: FormData) {
     "use server";
 
     const name = formData.get("name") as string;
-    // Konvertera kronor från formuläret till ören för databasen
     const price = Math.round(parseFloat(formData.get("price") as string) * 100);
     const stock = parseInt(formData.get("stock") as string) || 0;
     const description = formData.get("description") as string;
@@ -44,7 +58,7 @@ export default async function EditProductPage({
     const slug = name.toLowerCase().replace(/ /g, "-").replace(/[^\w-]+/g, "");
 
     await db.product.update({
-      where: { id }, // Använder id från params ovan
+      where: { id },
       data: {
         name,
         slug,
@@ -56,11 +70,8 @@ export default async function EditProductPage({
       },
     });
 
-    // Rensa cache så att ändringarna syns överallt
     revalidatePath("/admin/products/new");
     revalidatePath("/");
-
-    // Skicka tillbaka användaren
     redirect("/admin/products/new");
   }
 
@@ -91,7 +102,7 @@ export default async function EditProductPage({
               name="price"
               type="number"
               step="0.01"
-              defaultValue={product.price / 100} // Visa som kronor (t.ex. 133)
+              defaultValue={product.price / 100}
               className="w-full border p-2 rounded text-black mt-1"
               required
             />
@@ -122,11 +133,13 @@ export default async function EditProductPage({
             <label className="text-sm font-semibold text-gray-700">Category</label>
             <select
               name="categoryId"
-              defaultValue={product.categoryId}
+              defaultValue={product.categoryId || ""}
               className="w-full border p-2 rounded text-black mt-1"
               required
             >
-              {categories.map((cat) => (
+              <option value="" disabled>Select a category</option>
+              {/* 4. Typa 'cat' explicit för att undvika 'any'-felet */}
+              {categories.map((cat: Category) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.name}
                 </option>
