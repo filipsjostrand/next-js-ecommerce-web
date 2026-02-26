@@ -1,4 +1,4 @@
-🏀 Sportify — Full-Stack E-Commerce Platform
+⚽ Sportify — Full-Stack E-Commerce Platform
 
 A modern, full-stack e-commerce application for sports equipment built with: <br>
   • Next.js <br>
@@ -7,6 +7,7 @@ A modern, full-stack e-commerce application for sports equipment built with: <br
   • Stripe, and <br>
   • NextAuth,<br>
   • ShadCn,<br>
+  • Resend,<br>
   • Axios.<br>
 
 ✨ Features
