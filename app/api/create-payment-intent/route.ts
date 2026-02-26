@@ -46,7 +46,10 @@ export async function POST(req: Request) {
     let totalAmount = 0;
 
     for (const item of body.items) {
-      const product = products.find((p) => p.id === item.productId);
+      const product = products.find(
+        (p: (typeof products)[number]) => p.id === item.productId
+      );
+
 
       if (!product) {
         return NextResponse.json(
