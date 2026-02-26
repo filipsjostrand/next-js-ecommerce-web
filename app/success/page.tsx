@@ -24,9 +24,10 @@ export default async function SuccessPage({
 
   if (!sessionId) redirect("/");
 
-  const session = await stripe.checkout.sessions.retrieve(sessionId, {
+  // Här lägger vi till "as Stripe.Checkout.Session" för att fixa typfelet
+  const session = (await stripe.checkout.sessions.retrieve(sessionId, {
     expand: ["line_items"],
-  });
+  })) as Stripe.Checkout.Session;
 
   const existingOrder = await db.order.findFirst({
     where: { stripeSessionId: sessionId },
@@ -67,10 +68,11 @@ export default async function SuccessPage({
         items: {
           create: lineItemsDetails.data.map((item) => {
             const product = item.price?.product as Stripe.Product;
-            const pId = (item.metadata?.productId) || product?.metadata?.productId;
+            // Säkerställ att vi har ett productId från metadata eller produkt-objektet
+            const pId = (item.metadata?.productId) || product?.metadata?.productId || "unknown";
 
             return {
-              productId: pId as string,
+              productId: pId,
               quantity: item.quantity || 1,
               price: item.amount_total || 0,
             };
@@ -82,18 +84,20 @@ export default async function SuccessPage({
       },
     });
 
-    // Uppdatera lager med typad loop
-    await Promise.all(
-      order.items.map((item: NewOrderItem) =>
-        db.product.update({
-          where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } },
-        })
-      )
-    );
+    // Uppdatera lager
+    if (order && order.items) {
+        await Promise.all(
+          order.items.map((item: NewOrderItem) =>
+            db.product.update({
+              where: { id: item.productId },
+              data: { stock: { decrement: item.quantity } },
+            })
+          )
+        );
+    }
 
     // Skicka mail om e-post finns
-    if (session.customer_details?.email) {
+    if (session.customer_details?.email && order) {
       const productListHtml = lineItemsDetails.data.map((item) => `
         <li style="margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px; list-style: none;">
           <strong>${item.description}</strong><br />
@@ -109,7 +113,7 @@ export default async function SuccessPage({
           html: `
             <div style="font-family: sans-serif; color: #333;">
               <h1>Tack för din beställning!</h1>
-              <p>Hej ${session.customer_details.name},</p>
+              <p>Hej ${session.customer_details.name || 'Kund'},</p>
               <div style="background: #f9f9f9; padding: 20px; border-radius: 10px;">
                 <p><strong>Order-ID:</strong> ${order.id}</p>
                 <p><strong>Adress:</strong> ${fullAddress}</p>
@@ -125,6 +129,9 @@ export default async function SuccessPage({
       }
     }
   }
+
+  // Om order mot förmodan fortfarande är null efter logiken ovan
+  if (!order) return redirect("/");
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center p-4 text-black">
@@ -148,7 +155,7 @@ export default async function SuccessPage({
           </div>
         </div>
 
-        <p className="mb-8 text-sm text-gray-400 font-mono">Order ID: {order?.id.slice(-10).toUpperCase()}</p>
+        <p className="mb-8 text-sm text-gray-400 font-mono">Order ID: {order.id.slice(-10).toUpperCase()}</p>
 
         <Link href="/account" className="bg-black text-white py-3 px-6 rounded-xl flex items-center justify-center gap-2 hover:bg-zinc-800 transition-all">
           <ShoppingBag size={18} /> Se mina ordrar
