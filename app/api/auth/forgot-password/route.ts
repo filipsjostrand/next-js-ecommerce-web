@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Inaktiverat: const resend = new Resend(process.env.RESEND_API_KEY);
+// Resend flyttas till POST
 
 export async function POST(req: Request) {
   try {
@@ -13,14 +14,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
+    // Resend initieras här
+    // Följande körs bara när någon faktiskt anropar API:et
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
     const user = await db.user.findUnique({ where: { email } });
 
-    // Av säkerhetsskäl avslöjar vi inte om användaren finns eller ej
     if (!user) {
       return NextResponse.json({ message: "If an account is connected to this email, an email has been sent." });
     }
 
-    // Skapa en unik token och sätt utgångstid (1 timme)
     const resetToken = crypto.randomBytes(32).toString("hex");
     const resetTokenExpiry = new Date(Date.now() + 3600 * 1000);
 
