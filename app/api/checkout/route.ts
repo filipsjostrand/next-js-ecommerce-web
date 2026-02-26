@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import type { Product } from "@prisma/client";
 
 interface CheckoutItem {
   productId: string;
@@ -25,16 +26,16 @@ export async function POST(req: Request) {
 
     const productIds = body.items.map((item) => item.productId);
 
-    const products = await db.product.findMany({
+    const products: Product[] = await db.product.findMany({
       where: {
         id: { in: productIds },
       },
     });
 
-    if (products.length === 0) {
+    if (products.length !== body.items.length) {
       return NextResponse.json(
-        { error: "Products not found" },
-        { status: 404 }
+        { error: "One or more products are invalid" },
+        { status: 400 }
       );
     }
 
@@ -42,7 +43,9 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
     const line_items = body.items.map((item) => {
-      const product = products.find((p) => p.id === item.productId);
+      const product = products.find(
+        (p: Product) => p.id === item.productId
+      );
 
       if (!product) {
         throw new Error("Invalid product in cart");
@@ -63,7 +66,7 @@ export async function POST(req: Request) {
               productId: product.id,
             },
           },
-          unit_amount: product.price, // ✅ pris från DB
+          unit_amount: product.price,
         },
         metadata: {
           productId: product.id,
