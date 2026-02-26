@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
+import { stripe } from "@/lib/stripe"; // Säker instans från lib
 import { db } from "@/lib/db";
-
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY is not set");
-}
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2026-01-28.clover",
-});
 
 interface CartItem {
   productId: string;
@@ -17,6 +9,15 @@ interface CartItem {
 
 export async function POST(req: Request) {
   try {
+    // 1. Kontrollera att stripe är tillgängligt (viktigt för build-steg)
+    if (!stripe) {
+      console.error("Stripe is not configured. Missing STRIPE_SECRET_KEY.");
+      return NextResponse.json(
+        { error: "Payment service unavailable" },
+        { status: 500 }
+      );
+    }
+
     const body = (await req.json()) as { items: CartItem[] };
 
     if (!body.items || body.items.length === 0) {
@@ -47,9 +48,8 @@ export async function POST(req: Request) {
 
     for (const item of body.items) {
       const product = products.find(
-        (p: (typeof products)[number]) => p.id === item.productId
+        (p) => p.id === item.productId
       );
-
 
       if (!product) {
         return NextResponse.json(
@@ -68,6 +68,7 @@ export async function POST(req: Request) {
       totalAmount += product.price * item.quantity;
     }
 
+    // Stripe kräver minst 500 öre (5 SEK)
     if (totalAmount < 500) {
       return NextResponse.json(
         { error: "Amount too low (minimum 5 SEK)" },
@@ -75,6 +76,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // 2. Skapa PaymentIntent med importerad stripe-instans
     const paymentIntent = await stripe.paymentIntents.create({
       amount: totalAmount,
       currency: "sek",
