@@ -4,12 +4,9 @@ import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import Stripe from "stripe";
-import { Resend } from "resend";
+import { resend } from "@/lib/resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-// Vi definierar en exakt typ för det vi behöver, utan att förlita oss på
-// djupt kapslade Stripe-medlemmar som 'ShippingDetails'
+// Definition för Stripe-session med detaljer
 type CheckoutSessionWithDetails = Stripe.Checkout.Session & {
   shipping_details: {
     address: Stripe.Address | null;
@@ -37,11 +34,12 @@ export default async function SuccessPage({
 
   if (!sessionId) redirect("/");
 
-  // Använd unknown -> CheckoutSessionWithDetails för att passera TS-kontrollen
+  // Hämta sessionen från Stripe (lib/stripe är redan build-safe)
   const session = (await stripe.checkout.sessions.retrieve(sessionId, {
     expand: ["line_items"],
   })) as unknown as CheckoutSessionWithDetails;
 
+  // Kolla om ordern redan finns i databasen
   const existingOrder = await db.order.findFirst({
     where: { stripeSessionId: sessionId },
     include: { items: true }
@@ -49,6 +47,7 @@ export default async function SuccessPage({
 
   let order = existingOrder;
 
+  // Om ordern inte finns (första gången sidan laddas), skapa den
   if (!existingOrder) {
     const shipping = session.shipping_details?.address;
     const billing = session.customer_details?.address;
@@ -94,6 +93,7 @@ export default async function SuccessPage({
       },
     });
 
+    // Uppdatera lageraldo
     if (order && order.items) {
       await Promise.all(
         order.items.map((item: NewOrderItem) =>
@@ -105,7 +105,9 @@ export default async function SuccessPage({
       );
     }
 
-    if (session.customer_details?.email && order) {
+    // SKICKA BEKRÄFTELSEMEJL via Resend
+    // Kontrollerar att email OCH att resend-instansen finns (inte är null)
+    if (session.customer_details?.email && order && resend) {
       const productListHtml = lineItemsDetails.data.map((item) => `
         <li style="margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px; list-style: none;">
           <strong>${item.description}</strong><br />
