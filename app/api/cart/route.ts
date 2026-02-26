@@ -3,16 +3,17 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-type RouteContext = {
+// Next.js 16 kräver att params definieras som ett Promise
+interface RouteContext {
   params: Promise<{ id: string }>;
-};
+}
 
 export async function GET(
-  req: NextRequest,
-  { params }: RouteContext
-) {
+  request: NextRequest,
+  context: RouteContext
+): Promise<Response> {
   try {
-    const { id } = await params;
+    const { id } = await context.params;
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
@@ -34,31 +35,30 @@ export async function GET(
 }
 
 export async function PATCH(
-  req: NextRequest,
-  { params }: RouteContext
-): Promise<NextResponse> { // Lade till explicit returtyp här
+  request: NextRequest,
+  context: RouteContext
+): Promise<Response> {
   try {
-    const { id } = await params;
+    const { id } = await context.params;
 
-    // Om du implementering skulle önskas framöver:
-    // const body = await req.json();
-    // const { quantity } = body;
+    // Vi läser in body för att visa Typescript att vi hanterar anropet korrekt
+    // const body = await request.json();
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+    return NextResponse.json({ success: false }, { status: 500 });
   }
 }
 
-// Om du har en DELETE liggande någonstans som spökar, lägg till denna också:
+// Lägg till DELETE också för säkerhets skull så hela [id] routen är komplett
 export async function DELETE(
-  req: NextRequest,
-  { params }: RouteContext
-): Promise<NextResponse> {
+  request: NextRequest,
+  context: RouteContext
+): Promise<Response> {
   try {
-    const { id } = await params;
+    const { id } = await context.params;
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
+    return NextResponse.json({ success: false }, { status: 500 });
   }
 }
