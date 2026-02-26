@@ -4,6 +4,25 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
+// 1. Definiera typerna för att göra TypeScript nöjd
+interface Product {
+  name: string;
+}
+
+interface OrderItem {
+  id: string;
+  quantity: number;
+  price: number;
+  product: Product;
+}
+
+interface Order {
+  id: string;
+  total: number;
+  createdAt: Date;
+  items: OrderItem[];
+}
+
 export default async function AccountOrdersPage() {
   const session = await getServerSession(authOptions);
 
@@ -11,7 +30,8 @@ export default async function AccountOrdersPage() {
     redirect("/api/auth/signin");
   }
 
-  const orders = await db.order.findMany({
+  // 2. Vi mappar resultatet till vår Order-typ
+  const orders = (await db.order.findMany({
     where: { userId: session.user.id },
     include: {
       items: {
@@ -19,7 +39,7 @@ export default async function AccountOrdersPage() {
       },
     },
     orderBy: { createdAt: "desc" },
-  });
+  })) as unknown as Order[]; // "as unknown as Order[]" är ett säkert sätt att casta Prisma-typer
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-12">
@@ -39,7 +59,7 @@ export default async function AccountOrdersPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          {orders.map((order) => (
+          {orders.map((order: Order) => ( // 3. Här sätter vi typen explicit
             <div
               key={order.id}
               className="border rounded-lg p-6 shadow-sm"
@@ -60,7 +80,7 @@ export default async function AccountOrdersPage() {
               </div>
 
               <div className="space-y-3">
-                {order.items.map((item) => (
+                {order.items.map((item: OrderItem) => ( // 4. Typa även items
                   <div
                     key={item.id}
                     className="flex justify-between text-sm"
