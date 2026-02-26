@@ -3,7 +3,6 @@ import { stripe } from "@/lib/stripe";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import type { Product } from "@prisma/client";
 
 interface CheckoutItem {
   productId: string;
@@ -13,7 +12,7 @@ interface CheckoutItem {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    const userId = session?.user?.id;
+    const userId = session?.user?.id ?? null;
 
     const body = (await req.json()) as { items: CheckoutItem[] };
 
@@ -26,7 +25,7 @@ export async function POST(req: Request) {
 
     const productIds = body.items.map((item) => item.productId);
 
-    const products: Product[] = await db.product.findMany({
+    const products = await db.product.findMany({
       where: {
         id: { in: productIds },
       },
@@ -44,7 +43,7 @@ export async function POST(req: Request) {
 
     const line_items = body.items.map((item) => {
       const product = products.find(
-        (p: Product) => p.id === item.productId
+        (p: (typeof products)[number]) => p.id === item.productId
       );
 
       if (!product) {
@@ -85,7 +84,7 @@ export async function POST(req: Request) {
       success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/cart`,
       metadata: {
-        userId: userId || "guest",
+        userId: userId ?? "guest",
         isGuest: userId ? "false" : "true",
       },
       customer_email: session?.user?.email || undefined,
