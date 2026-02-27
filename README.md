@@ -1,5 +1,7 @@
 ⚽ Sportify — Full-Stack E-Commerce Platform
 
+Available at: https://next-js-sportify-10.vercel.app/
+
 A modern, full-stack e-commerce application for sports equipment built with: <br>
   • Next.js <br>
   • App Router, <br>
@@ -10,10 +12,12 @@ A modern, full-stack e-commerce application for sports equipment built with: <br
   • Resend,<br>
   • Axios.<br>
 
+Database is hosted at neon.tech
+
 ✨ Features
 
 • Secure authentication (Credentials) <br>
-• Role-based access (Admin / User) <br>
+• Role-based access (Admin / User - logged in / guest) <br>
 • Product catalog with categories <br>
 • Persistent shopping cart <br>
 • Stripe checkout & webhooks <br>
@@ -26,11 +30,10 @@ A modern, full-stack e-commerce application for sports equipment built with: <br
 
 • Next.js 14 (App Router) <br>
 • Prisma ORM <br>
-• SQLite (dev) <br>
+• PostgresQL (possible to switch to SQLite) (dev) <br>
 • Stripe <br>
 • NextAuth <br>
 • Tailwind CSS <br>
-• ((Playwright (E2E tests))) <br>
 
 🗂️ Architecture
 
