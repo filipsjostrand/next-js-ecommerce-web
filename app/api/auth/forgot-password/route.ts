@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     }
 
     // Resend initieras här
-    // Följande körs bara när någon faktiskt anropar API:et
+    // Följande körs bara när någon anropar API:et
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     const user = await db.user.findUnique({ where: { email } });
